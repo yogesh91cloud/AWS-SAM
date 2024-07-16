@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: demo-sam-rds
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: 's3:ObjectCreated:*'
+            Function: !GetAtt RDSLambdaFunction.Arn
+          - Event: 's3:ObjectRemoved:*'
+            Function: !GetAtt RDSLambdaFunction.Arn
+
+  RDSLambdaFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: demo-sam-rds-s3
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            Effect: Allow
+            Action:
+              - rds:*
+              - s3:*
+              - ec2:*
+            Resource: '*'
+      Environment:
+        Variables:
+          S3_BUCKET: demo-sam-rds
+          RDS_INSTANCE_ID: sam-rds-s3
+          RDS_DB_NAME: SAMdemordsdb
+          RDS_USERNAME: admin
+          RDS_PASSWORD: admin123
+          RDS_VPC_SECURITY_GROUPS: sg-7a10e22e
+
+  PermissionForS3ToInvokeLambda:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt RDSLambdaFunction.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 's3.amazonaws.com'
+      SourceArn: arn:aws:s3:::demo-sam-rds
